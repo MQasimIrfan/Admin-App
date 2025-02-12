@@ -89,13 +89,16 @@ const TrackDriver = () => {
   }, [driverLocations]);
   const sendTwilioMessage = async () => {
     try {
-      const response = await fetch("http://localhost:5000/send-message", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          link: "https://admin-app-psi-five.vercel.app/td",
-        }),
-      });
+      const response = await fetch(
+        "loyal-achievement-production.up.railway.app",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            link: "https://admin-app-psi-five.vercel.app/td",
+          }),
+        }
+      );
       const data = await response.json();
       if (data.success) {
         console.log("Message sent successfully:", data.messageSid);
