@@ -31,7 +31,7 @@ const TrackDriver = () => {
 
     // Initialize map if not already initialized
     if (!mapRef.current) {
-      mapRef.current = L.map("map").setView([0, 0], 16); // Default view
+      mapRef.current = L.map("map").setView([0, 0], 10); // Default view
       L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
         attribution: "OpenStreetMap contributors",
       }).addTo(mapRef.current);
@@ -87,6 +87,25 @@ const TrackDriver = () => {
       mapRef.current.setView([latitude, longitude], 16);
     }
   }, [driverLocations]);
+  const sendTwilioMessage = async () => {
+    try {
+      const response = await fetch("http://localhost:5000/send-message", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          link: "https://admin-app-psi-five.vercel.app/td",
+        }),
+      });
+      const data = await response.json();
+      if (data.success) {
+        console.log("Message sent successfully:", data.messageSid);
+      } else {
+        console.error("Error sending message:", data.error);
+      }
+    } catch (error) {
+      console.error("Network error:", error);
+    }
+  };
 
   return (
     <div style={{ padding: "20px", fontSize: "18px" }}>
@@ -106,6 +125,16 @@ const TrackDriver = () => {
           )}
         </ul>
       )}
+      {/* Twilio Button Positioned Correctly */}
+      <div style={{ textAlign: "center", margin: "20px 0" }}>
+        <button
+          onClick={sendTwilioMessage}
+          style={{ padding: "10px 20px", fontSize: "16px" }}
+        >
+          Send WhatsApp Notification
+        </button>
+      </div>
+
       {/* Map container */}
       <div
         id="map"

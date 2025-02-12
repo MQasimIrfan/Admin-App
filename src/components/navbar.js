@@ -102,6 +102,11 @@ const Navbar = () => {
                     Track driver
                   </Link>
                 </li>
+                <li className="nav-item">
+                  <Link to="/admin/video" className="nav-link">
+                    Video Verification
+                  </Link>
+                </li>
               </ul>
             </div>
           </div>

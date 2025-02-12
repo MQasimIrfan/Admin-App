@@ -6,6 +6,7 @@ import CarBook from '../components/CarBook';
 import Mapimage from '../components/Mapimage';
 import LiveLoc from "../components/LiveLocation";
 import Td from "../components/TrackDriver"
+import VideoVerification from "../components/VideoVerification"
 const Home = () => {
   return (
     <div>
@@ -18,6 +19,7 @@ const Home = () => {
         <Mapimage/>
         <LiveLoc />
         <Td />
+        <VideoVerification />
     </div>
   )
 }

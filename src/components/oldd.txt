@@ -1,0 +1,88 @@
+import React, { useEffect, useRef, useState } from "react";
+import io from "socket.io-client";
+import SimplePeer from "simple-peer";
+
+const socket = io("http://localhost:5000");
+
+const VideoVerification = ({ adminId, driverId }) => {
+  const [stream, setStream] = useState(null);
+  const videoRef = useRef();
+  const peerRef = useRef(null);
+
+  useEffect(() => {
+    socket.emit("request_video", { adminId, driverId });
+
+    socket.on("receive_offer", async ({ signal, driverSocket }) => {
+      if (peerRef.current) {
+        peerRef.current.destroy(); // Cleanup previous peer connection
+        peerRef.current = null;
+      }
+
+      try {
+        // ✅ Request media permissions properly
+        const mediaStream = await navigator.mediaDevices.getUserMedia({
+          video: true,
+          audio: true,
+        });
+
+        peerRef.current = new SimplePeer({
+          initiator: false,
+          trickle: false,
+          stream: mediaStream, // ✅ Ensure media stream is included
+        });
+
+        peerRef.current.on("signal", (answerSignal) => {
+          console.log("Sending answer to driver:", answerSignal);
+          socket.emit("send_answer", { signal: answerSignal, driverSocket });
+        });
+
+        peerRef.current.on("stream", (driverStream) => {
+          console.log("Receiving driver stream:", driverStream);
+          if (videoRef.current) {
+            videoRef.current.srcObject = driverStream;
+            setStream(driverStream);
+          }
+        });
+
+        peerRef.current.on("error", (err) => {
+          console.error("Peer connection error:", err);
+        });
+
+        peerRef.current.on("close", () => {
+          console.log(
+            "Peer connection closed on admin. Attempting to reconnect..."
+          );
+          if (peerRef.current) {
+            peerRef.current.destroy();
+            peerRef.current = null;
+          }
+        });
+
+        peerRef.current.signal(signal); // ✅ Correct placement
+      } catch (error) {
+        console.error("Error accessing media devices in admin app:", error);
+      }
+    });
+
+    return () => {
+      socket.off("receive_offer");
+      if (peerRef.current) {
+        peerRef.current.destroy();
+        peerRef.current = null;
+      }
+    };
+  }, [adminId, driverId]);
+
+  return (
+    <div>
+      <h2>Admin Live View</h2>
+      {stream ? (
+        <video ref={videoRef} autoPlay playsInline></video>
+      ) : (
+        <p>Waiting for video...</p>
+      )}
+    </div>
+  );
+};
+
+export default VideoVerification;
