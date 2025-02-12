@@ -90,7 +90,7 @@ const TrackDriver = () => {
   const sendTwilioMessage = async () => {
     try {
       const response = await fetch(
-        "loyal-achievement-production.up.railway.app",
+        "https://loyal-achievement-production.up.railway.app/send-message",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
