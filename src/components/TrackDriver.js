@@ -38,7 +38,7 @@ const TrackDriver = () => {
     }
 
     // Connect to WebSocket server
-    const socket = io("https://web-socket-production-5866.up.railway.app/");
+    const socket = io("web-socket-production-ead2.up.railway.app");
 
     socket.on("connect", () => {
       console.log("Connected to WebSocket server");
