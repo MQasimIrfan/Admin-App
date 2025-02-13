@@ -3,24 +3,23 @@ import { io } from "socket.io-client";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 
-// Fix for default Leaflet icon not showing
+// Fix Leaflet default icon issue
 import markerIcon from "leaflet/dist/images/marker-icon.png";
 import markerShadow from "leaflet/dist/images/marker-shadow.png";
 
 const TrackDriver = () => {
   const [driverLocations, setDriverLocations] = useState({});
-  const mapRef = useRef(null); // Reference for the map
-  const markersRef = useRef({}); // Reference for markers (one per driver)
+  const [isLive, setIsLive] = useState(false); // Track if location is live
+  const mapRef = useRef(null);
+  const markersRef = useRef({});
 
   useEffect(() => {
-    // Check if map container exists
     const mapContainer = document.getElementById("map");
     if (!mapContainer) {
       console.error("Map container not found!");
       return;
     }
 
-    // Set default Leaflet icon
     const DefaultIcon = L.icon({
       iconUrl: markerIcon,
       shadowUrl: markerShadow,
@@ -29,28 +28,34 @@ const TrackDriver = () => {
     });
     L.Marker.prototype.options.icon = DefaultIcon;
 
-    // Initialize map if not already initialized
     if (!mapRef.current) {
-      mapRef.current = L.map("map").setView([0, 0], 10); // Default view
+      mapRef.current = L.map("map").setView([31.464373, 74.32351], 16); // Default location
       L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
         attribution: "OpenStreetMap contributors",
       }).addTo(mapRef.current);
     }
 
-    // Connect to WebSocket server
-    const socket = io("web-socket-production-ead2.up.railway.app");
+    const socket = io("https://web-socket-production-5866.up.railway.app/");
 
     socket.on("connect", () => {
       console.log("Connected to WebSocket server");
     });
 
-    // Listen for driver location updates
     socket.on("receive-location", (locations) => {
-      console.log("Updated Driver Locations:", locations);
-      setDriverLocations(locations);
+      if (Object.keys(locations).length > 0) {
+        console.log("Live Driver Locations:", locations);
+        setDriverLocations(locations);
+        setIsLive(true); // Confirm location is live
+        sessionStorage.setItem("driverLocations", JSON.stringify(locations));
+      } else {
+        setIsLive(false); // No live drivers
+      }
     });
 
-    // Clean up WebSocket connection on component unmount
+    socket.on("disconnect", () => {
+      console.log("Disconnected from WebSocket server.");
+    });
+
     return () => {
       socket.disconnect();
     };
@@ -59,92 +64,69 @@ const TrackDriver = () => {
   useEffect(() => {
     if (!mapRef.current) return;
 
-    Object.entries(driverLocations).forEach(([id, { latitude, longitude }]) => {
+    let locationsToShow = driverLocations;
+
+    if (Object.keys(driverLocations).length === 0) {
+      const savedLocations = sessionStorage.getItem("driverLocations");
+      if (savedLocations) {
+        try {
+          locationsToShow = JSON.parse(savedLocations);
+          setDriverLocations(locationsToShow);
+          setIsLive(false); // Using last known location
+        } catch (error) {
+          console.error("Error parsing stored locations:", error);
+        }
+      }
+    }
+
+    Object.entries(locationsToShow).forEach(([id, { latitude, longitude }]) => {
       if (isNaN(latitude) || isNaN(longitude)) {
-        console.error(
-          `Invalid coordinates for driver ${id}:`,
-          latitude,
-          longitude
-        );
+        console.error(Invalid coordinates for driver ${id}:, latitude, longitude);
         return;
       }
 
       if (markersRef.current[id]) {
-        // Update existing marker position
         markersRef.current[id].setLatLng([latitude, longitude]);
       } else {
-        // Create a new marker for this driver
         markersRef.current[id] = L.marker([latitude, longitude], {
-          title: `Driver ID: ${id}`,
+          title: Driver ID: ${id},
         }).addTo(mapRef.current);
       }
     });
 
-    // Center the map on the last updated driver
-    const latestDriver = Object.entries(driverLocations).pop();
+    const latestDriver = Object.entries(locationsToShow).pop();
     if (latestDriver) {
       const [, { latitude, longitude }] = latestDriver;
       mapRef.current.setView([latitude, longitude], 16);
     }
   }, [driverLocations]);
-  const sendTwilioMessage = async () => {
-    try {
-      const response = await fetch(
-        "https://loyal-achievement-production.up.railway.app/send-message",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            link: "https://admin-app-psi-five.vercel.app/td",
-          }),
-        }
-      );
-      const data = await response.json();
-      if (data.success) {
-        console.log("Message sent successfully:", data.messageSid);
-      } else {
-        console.error("Error sending message:", data.error);
-      }
-    } catch (error) {
-      console.error("Network error:", error);
-    }
-  };
 
   return (
     <div style={{ padding: "20px", fontSize: "18px" }}>
       <h2>Driver Live Location Updates</h2>
+      
       {Object.keys(driverLocations).length === 0 ? (
-        <p>No drivers currently online.</p>
+        <p>No drivers currently online. <strong>Showing last known location.</strong></p>
+      ) : isLive ? (
+        <p>✅ <strong>Live driver locations</strong> are being displayed.</p>
       ) : (
-        <ul>
-          {Object.entries(driverLocations).map(
-            ([id, { latitude, longitude }]) => (
-              <li key={id}>
-                <strong>Driver ID:</strong> {id} <br />
-                <strong>Latitude:</strong> {latitude} <br />
-                <strong>Longitude:</strong> {longitude}
-              </li>
-            )
-          )}
-        </ul>
+        <p>⚠ No live drivers. <strong>Displaying last known location.</strong></p>
       )}
-      {/* Twilio Button Positioned Correctly */}
-      <div style={{ textAlign: "center", margin: "20px 0" }}>
-        <button
-          onClick={sendTwilioMessage}
-          style={{ padding: "10px 20px", fontSize: "16px" }}
-        >
-          Send WhatsApp Notification
-        </button>
-      </div>
 
-      {/* Map container */}
-      <div
-        id="map"
-        style={{ height: "60vh", width: "100%", marginTop: "20px" }}
-      />
+      <ul>
+        {Object.entries(driverLocations).map(([id, { latitude, longitude }]) => (
+          <li key={id}>
+            <strong>Driver ID:</strong> {id} <br />
+            <strong>Latitude:</strong> {latitude} <br />
+            <strong>Longitude:</strong> {longitude} <br />
+            {isLive ? "🟢 Live Location" : "🟡 Last Known Location"}
+          </li>
+        ))}
+      </ul>
+
+      <div id="map" style={{ height: "60vh", width: "100%", marginTop: "20px" }} />
     </div>
   );
 };
 
-export default TrackDriver;
+export default TrackDriver;
